@@ -4,7 +4,8 @@
   "description": "A blockchain built with Javascript",
   "main": "index.js",
   "scripts": {
-    "test": "node dev/test.js"
+    "test": "node dev/test.js",
+    "start": "nodemon --watch dev -e js dev/api.js"
   },
   "keywords": [
     "blockchain",
@@ -13,6 +14,10 @@
   "author": "Ian Branda",
   "license": "ISC",
   "dependencies": {
-    "sha256": "^0.2.0"
+    "body-parser": "^1.20.0",
+    "express": "^4.18.1",
+    "nodemon": "^2.0.20",
+    "sha256": "^0.2.0",
+    "uuid": "^9.0.0"
   }
 }
