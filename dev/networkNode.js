@@ -19,16 +19,53 @@ app.get("/blockchain", (req, res) => {
 });
 
 app.post("/transaction", (req, res) => {
-	// Create a new transaction with the amount, sender, and recipient in the body of the request
-	const blockIndex = jsCoin.createNewTransaction(
+	const newTransaction = req.body.newTransaction;
+	const blockIndex = jsCoin.addToPendingTransactions(newTransaction);
+	res.json({ note: `Transaction will be added in block ${blockIndex}.` });
+});
+
+app.post("/transaction/broadcast", async (req, res) => {
+	// Create new transaction
+	const newTransaction = jsCoin.createNewTransaction(
 		req.body.amount,
 		req.body.sender,
 		req.body.recipient
 	);
-	res.json({ note: `Transaction will be added in block ${blockIndex}.` });
+	jsCoin.addToPendingTransactions(newTransaction);
+
+	// Broadcast new transaction to all other nodes
+	const requestPromises = [];
+	jsCoin.networkNodes.forEach((networkNodeUrl) => {
+		const requestOptions = {
+			uri: networkNodeUrl + "/transaction",
+			method: "POST",
+			body: { newTransaction: newTransaction },
+			json: true,
+		};
+		requestPromises.push(rp(requestOptions));
+	});
+	await Promise.all(requestPromises);
+
+	res.json({ note: "Transaction successfully created and broadcast." });
 });
 
-app.get("/mine", (req, res) => {
+app.post("/new-block", (req, res) => {
+	const newBlock = req.body.newBlock;
+
+	// Verify the new block:
+	const correctHash = newBlock.previousBlockHash === jsCoin.lastBlock.hash;
+	const correctIndex = newBlock.index === jsCoin.lastBlock.index + 1;
+
+	if (correctHash && correctIndex) {
+		jsCoin.chain.push(newBlock);
+		jsCoin.pendingTransactions = [];
+		res.json({ note: "New block received and accepted" });
+	} else {
+		res.json({ note: "New block rejected", block: newBlock });
+	}
+});
+
+app.get("/new-block/broadcast", async (req, res) => {
 	// Get the previous block's hash and the block data
 	const previousBlockHash = jsCoin.lastBlock.hash;
 	const currentBlockData = {
@@ -39,12 +76,34 @@ app.get("/mine", (req, res) => {
 	const nonce = jsCoin.proofOfWork(previousBlockHash, currentBlockData);
 	// Create the new hash
 	const hash = jsCoin.hashBlock(previousBlockHash, currentBlockData, nonce);
-	// Reward the miner for their work
-	jsCoin.createNewTransaction(6.9, "00", nodeAddress);
 	// Add the verified block to the blockchain
 	const newBlock = jsCoin.createNewBlock(nonce, previousBlockHash, hash);
 
-	res.json({ note: "New block mined successfully!", block: newBlock });
+	// Broadcast block to network
+	const requestPromises = [];
+	jsCoin.networkNodes.forEach((networkNodeUrl) => {
+		const requestOptions = {
+			uri: networkNodeUrl + "/new-block",
+			method: "POST",
+			body: { newBlock: newBlock },
+			json: true,
+		};
+		requestPromises.push(rp(requestOptions));
+	});
+
+	await Promise.all(requestPromises);
+
+	// Reward the miner for their work
+	const requestOptions = {
+		uri: jsCoin.currentNodeUrl + "/transaction/broadcast",
+		method: "POST",
+		body: { amount: 6.9, sender: "00", recipient: nodeAddress },
+		json: true,
+	};
+
+	await rp(requestOptions);
+
+	res.json({ note: "New block broadcast successfully!", block: newBlock });
 });
 
 // Only register nodes that aren't the current node and that aren't already registered
@@ -55,7 +114,7 @@ function shouldRegisterNode(node) {
 }
 
 // Register a node and broadcast that node to the whole network
-app.post("/register-and-broadcast-node", async (req, res) => {
+app.post("/register-node/broadcast", async (req, res) => {
 	const newNodeUrl = req.body.newNodeUrl;
 	// Register the new node with the current node
 	if (shouldRegisterNode(newNodeUrl)) {
@@ -80,7 +139,7 @@ app.post("/register-and-broadcast-node", async (req, res) => {
 
 	// Register exisiting nodes with new node
 	const bulkRegisterOptions = {
-		uri: newNodeUrl + "/register-nodes-bulk",
+		uri: newNodeUrl + "/register-node/bulk",
 		method: "POST",
 		body: {
 			allNetworkNodes: [...jsCoin.networkNodes, jsCoin.currentNodeUrl],
@@ -104,7 +163,7 @@ app.post("/register-node", (req, res) => {
 });
 
 // Register multiple nodes at once
-app.post("/register-nodes-bulk", (req, res) => {
+app.post("/register-node/bulk", (req, res) => {
 	const allNetworkNodes = req.body.allNetworkNodes;
 	allNetworkNodes.forEach((networkNodeUrl) => {
 		if (shouldRegisterNode(networkNodeUrl)) {
