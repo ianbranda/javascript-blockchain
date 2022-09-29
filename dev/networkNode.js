@@ -149,7 +149,17 @@ app.post("/register-node/broadcast", async (req, res) => {
 
 	await rp(bulkRegisterOptions);
 
-	res.json({ note: "New node registered with network" });
+	const consensusOptions = {
+		uri: newNodeUrl + "/consensus",
+		method: "GET",
+		json: true,
+	};
+
+	await rp(consensusOptions);
+
+	res.json({
+		note: "New node registered with network and blockchain retrieved.",
+	});
 });
 
 // Register a node with the network when recieving a new node from broadcast
@@ -171,6 +181,54 @@ app.post("/register-node/bulk", (req, res) => {
 		}
 	});
 	res.json({ note: "All exisiting nodes registered" });
+});
+
+app.get("/consensus", async (req, res) => {
+	// Get blockchains from all other nodes
+	const requestPromises = [];
+	jsCoin.networkNodes.forEach((networkNodeUrl) => {
+		const requestOptions = {
+			uri: networkNodeUrl + "/blockchain",
+			method: "GET",
+			json: true,
+		};
+		requestPromises.push(rp(requestOptions));
+	});
+
+	const blockchains = await Promise.all(requestPromises);
+
+	// Identify if one of the blockchains on the network is loinger than the currently hosted chain
+	const currentChainLength = jsCoin.chain.length;
+	let maxChainLength = currentChainLength;
+	let newLongestChain = null;
+	let newPendingTransactions = null;
+
+	blockchains.forEach((blockchain) => {
+		if (blockchain.chain.length > maxChainLength) {
+			maxChainLength = blockchain.chain.length;
+			newLongestChain = blockchain.chain;
+			newPendingTransactions = blockchain.pendingTransactions;
+		}
+	});
+
+	if (!newLongestChain) {
+		res.json({
+			note: "Current chain is the longest chain.",
+			chain: jsCoin.chain,
+		});
+	} else if (!jsCoin.chainIsValid(newLongestChain)) {
+		res.json({
+			note: "New longest chain is invalid. Keeping current chain.",
+			chain: jsCoin.chain,
+		});
+	} else {
+		jsCoin.chain = newLongestChain;
+		jsCoin.pendingTransactions = newPendingTransactions;
+		res.json({
+			note: "Current chain has been replaced by a longer chain.",
+			chain: jsCoin.chain,
+		});
+	}
 });
 
 app.listen(PORT, () => console.log("Listening on port:", PORT));

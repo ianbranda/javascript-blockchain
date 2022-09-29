@@ -70,6 +70,43 @@ class Blockchain {
 
 		return nonce;
 	}
+
+	chainIsValid(blockchain) {
+		for (var i = 1; i < blockchain.length; i++) {
+			const currentBlock = blockchain[i];
+			const previousBlock = blockchain[i - 1];
+
+			if (currentBlock.previousBlockHash !== previousBlock.hash) {
+				return false;
+			}
+
+			const blockHash = this.hashBlock(
+				previousBlock.hash,
+				{
+					transactions: currentBlock.transactions,
+					index: currentBlock.index,
+				},
+				currentBlock.nonce
+			);
+
+			if (blockHash.substring(0, 4) !== "0000") {
+				return false;
+			}
+		}
+
+		const genesisBlock = blockchain[0];
+
+		if (
+			genesisBlock.nonce !== 0 ||
+			genesisBlock.previousBlockHash !== "0" ||
+			genesisBlock.hash !== "0" ||
+			genesisBlock.transactions.length !== 0
+		) {
+			return false;
+		}
+
+		return true;
+	}
 }
 
 module.exports = Blockchain;
