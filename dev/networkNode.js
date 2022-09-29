@@ -13,6 +13,10 @@ app.use(bodyParser.urlencoded({ extended: false }));
 const jsCoin = new Blockchain();
 const nodeAddress = uuid.v1().split("-").join("");
 
+app.get("/", (req, res) => {
+	res.sendFile("./explorer/index.html", {root: __dirname})
+})
+
 app.get("/blockchain", (req, res) => {
 	// Return the entire blockchain
 	res.send(jsCoin);
@@ -229,6 +233,21 @@ app.get("/consensus", async (req, res) => {
 			chain: jsCoin.chain,
 		});
 	}
+});
+
+app.get("/block/:blockHash", (req, res) => {
+	const block = jsCoin.getBlock(req.params.blockHash);
+	res.json({ block: block });
+});
+
+app.get("/transaction/:transactionId", (req, res) => {
+	const transactionData = jsCoin.getTransaction(req.params.transactionId);
+	res.json(transactionData);
+});
+
+app.get("/address/:address", (req, res) => {
+	const addressData = jsCoin.getAddressData(req.params.address);
+	res.json({addressData: addressData});
 });
 
 app.listen(PORT, () => console.log("Listening on port:", PORT));

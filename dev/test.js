@@ -1,6 +1,6 @@
 const Blockchain = require("./blockchain");
 
-const bitcoin = new Blockchain();
+const jsCoin = new Blockchain();
 
 const bc1 = {
 	chain: [
@@ -165,4 +165,4 @@ const bc1 = {
 	networkNodes: [],
 };
 
-console.log("VALID BLOCKCHAIN:",bitcoin.chainIsValid(bc1.chain))
+console.log("VALID BLOCKCHAIN:",jsCoin.chainIsValid(bc1.chain))
