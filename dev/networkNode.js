@@ -14,8 +14,8 @@ const jsCoin = new Blockchain();
 const nodeAddress = uuid.v1().split("-").join("");
 
 app.get("/", (req, res) => {
-	res.sendFile("./explorer/index.html", {root: __dirname})
-})
+	res.sendFile("./explorer/index.html", { root: __dirname });
+});
 
 app.get("/blockchain", (req, res) => {
 	// Return the entire blockchain
@@ -35,22 +35,24 @@ app.post("/transaction/broadcast", async (req, res) => {
 		req.body.sender,
 		req.body.recipient
 	);
-	jsCoin.addToPendingTransactions(newTransaction);
+	if (newTransaction !== null) {
+		jsCoin.addToPendingTransactions(newTransaction);
 
-	// Broadcast new transaction to all other nodes
-	const requestPromises = [];
-	jsCoin.networkNodes.forEach((networkNodeUrl) => {
-		const requestOptions = {
-			uri: networkNodeUrl + "/transaction",
-			method: "POST",
-			body: { newTransaction: newTransaction },
-			json: true,
-		};
-		requestPromises.push(rp(requestOptions));
-	});
-	await Promise.all(requestPromises);
+		// Broadcast new transaction to all other nodes
+		const requestPromises = [];
+		jsCoin.networkNodes.forEach((networkNodeUrl) => {
+			const requestOptions = {
+				uri: networkNodeUrl + "/transaction",
+				method: "POST",
+				body: { newTransaction: newTransaction },
+				json: true,
+			};
+			requestPromises.push(rp(requestOptions));
+		});
+		await Promise.all(requestPromises);
 
-	res.json({ note: "Transaction successfully created and broadcast." });
+		res.json({ note: "Transaction successfully created and broadcast." });
+	} else res.json({ note: "Not enough funds for transaction." });
 });
 
 app.post("/new-block", (req, res) => {
@@ -247,7 +249,7 @@ app.get("/transaction/:transactionId", (req, res) => {
 
 app.get("/address/:address", (req, res) => {
 	const addressData = jsCoin.getAddressData(req.params.address);
-	res.json({addressData: addressData});
+	res.json({ addressData: addressData });
 });
 
 app.listen(PORT, () => console.log("Listening on port:", PORT));

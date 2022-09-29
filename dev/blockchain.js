@@ -34,14 +34,18 @@ class Blockchain {
 	}
 
 	createNewTransaction(amount, sender, recipient) {
-		const newTransaction = {
-			id: uuid.v1().split("-").join(""),
-			amount: amount,
-			sender: sender,
-			recipient: recipient,
-		};
+		const senderBalance = this.getAddressData(sender).addressBalance;
+		if (amount <= senderBalance) {
+			const newTransaction = {
+				id: uuid.v1().split("-").join(""),
+				amount: amount,
+				sender: sender,
+				recipient: recipient,
+			};
 
-		return newTransaction;
+			return newTransaction;
+		}
+		return null;
 	}
 
 	addToPendingTransactions(newTransaction) {
@@ -141,7 +145,10 @@ class Blockchain {
 			});
 		});
 
-		return { addressTransactions: addressTransactions, addressBalance: balance };
+		return {
+			addressTransactions: addressTransactions,
+			addressBalance: balance,
+		};
 	}
 }
 
